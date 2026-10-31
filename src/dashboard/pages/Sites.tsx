@@ -26,7 +26,7 @@ const DAY = 86_400_000;
 const utcDate = (offset = 0) => new Date(Date.now() + offset * DAY).toISOString().slice(0, 10);
 
 function isValidWindow(from: string, to: string, today: string) {
-  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(from) || !/^\\d{4}-\\d{2}-\\d{2}$/.test(to)) return false;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) return false;
   const start = Date.parse(from + 'T00:00:00Z');
   const end = Date.parse(to + 'T00:00:00Z');
   return Number.isFinite(start) && Number.isFinite(end)
