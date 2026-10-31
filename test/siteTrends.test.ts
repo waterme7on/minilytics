@@ -71,7 +71,8 @@ describe('site overview trends', () => {
 
   it('rejects invalid or dangerous period inputs', () => {
     expect(isSiteTrendPeriod('7d')).toBe(true);
-    expect(isSiteTrendPeriod('custom')).toBe(false);
+    expect(isSiteTrendPeriod('custom')).toBe(true);
+    expect(isSiteTrendPeriod('nonsense')).toBe(false);
     expect(isSiteTrendPeriod("7d'; DROP TABLE sessions; --")).toBe(false);
   });
 });
