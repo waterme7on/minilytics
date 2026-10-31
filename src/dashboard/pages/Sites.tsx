@@ -230,7 +230,7 @@ export function Sites() {
       <div className="mt-3 flex flex-col gap-3">
         {period === 'custom' && (
           <div className="grid gap-2 sm:flex sm:items-end">
-            <div className="grid grid-cols-2 gap-2 sm:w-[340px]">
+            <div className="grid grid-cols-1 gap-2 sm:w-[340px] sm:grid-cols-2">
               <label className="min-w-0 text-xs font-medium text-stone-500">From (UTC)
                 <input type="date" aria-label="Current period start date" max={todayUtc}
                   className="input mt-1 w-full min-w-0 px-2 text-sm" value={customFrom} onChange={(event) => setCustomFrom(event.target.value)} />
@@ -257,7 +257,7 @@ export function Sites() {
           )}
         </div>
         {comparisonEnabled && comparisonMode === 'custom' && (
-          <div className="grid grid-cols-2 gap-2 sm:w-[340px]">
+          <div className="grid grid-cols-1 gap-2 sm:w-[340px] sm:grid-cols-2">
             <label className="min-w-0 text-xs font-medium text-stone-500">Compare from (UTC)
               <input type="date" aria-label="Comparison period start date" max={todayUtc}
                 className="input mt-1 w-full min-w-0 px-2 text-sm" value={compareFrom} onChange={(event) => setCompareFrom(event.target.value)} />
