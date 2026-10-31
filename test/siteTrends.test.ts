@@ -56,6 +56,9 @@ describe('site overview trends', () => {
     expect(bucketLabels(prior, 0)[0]).toBe('2026-10-28T00:00');
     const older = previousTrendRange(siteTrendRange('7d', now), '7d');
     expect(bucketLabels(older, 0)).toHaveLength(7);
+    const yearAgo = previousTrendRange(siteTrendRange('12m', now), '12m');
+    expect(bucketLabels(yearAgo, 0)).toHaveLength(12);
+    expect(bucketLabels(yearAgo, 0)[0]).toBe('2024-11');
   });
 
   it('rejects invalid, future, inverted and overlong date windows', () => {
