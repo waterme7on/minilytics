@@ -29,7 +29,7 @@ export function siteTrendRange(period: ActivePeriod, now = Date.now()): Range {
 }
 
 function utcDay(input: string): number | null {
-  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(input)) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input)) return null;
   const timestamp = Date.parse(input + 'T00:00:00Z');
   if (!Number.isFinite(timestamp) || new Date(timestamp).toISOString().slice(0, 10) !== input) return null;
   return timestamp;
