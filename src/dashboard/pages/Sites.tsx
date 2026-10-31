@@ -105,7 +105,7 @@ export function Sites() {
   const trendsUrl = validPrimary && validComparison ? `/api/sites/trends?${params.toString()}` : null;
   const { data: trends, loading, error, loadedUrl } = useApi<SiteTrends>(trendsUrl, retryKey);
   // Polling the same URL keeps the previous chart visible; switching windows waits for matching data.
-  const ready = !!trends && loadedUrl === trendsUrl && !error;
+  const ready = !!trends && loadedUrl === trendsUrl;
 
   // Keep the numbers fresh while the page sits open.
   useEffect(() => {
@@ -278,7 +278,12 @@ export function Sites() {
           const trend = ready ? trends?.sites[s.id] : undefined;
           const compared = ready ? trends?.comparison?.sites[s.id] : undefined;
           const isComparing = ready && !!trends?.comparison;
-          const dashboardPath = `/site/${s.id}?period=${period}`;
+          const detailParams = new URLSearchParams({ period });
+          if (period === 'custom') {
+            detailParams.set('from', customFrom);
+            detailParams.set('to', customTo);
+          }
+          const dashboardPath = `/site/${s.id}?${detailParams.toString()}`;
           function openDashboard(event: React.MouseEvent<HTMLDivElement>) {
             if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
             if (event.target instanceof Element && event.target.closest('a, button, input, select, textarea, label, [tabindex]')) return;
@@ -373,7 +378,7 @@ export function Sites() {
                   <span className={`h-2 w-2 rounded-full ${s.online ? 'animate-pulse bg-green-500' : 'bg-stone-300'}`} />
                   {s.online} online now
                 </div>
-                <button className="text-xs font-medium text-stone-600 hover:underline" onClick={() => navigate(`/site/${s.id}?period=${period}`)}>View dashboard →</button>
+                <button className="text-xs font-medium text-stone-600 hover:underline" onClick={() => navigate(dashboardPath)}>View dashboard →</button>
               </div>
             </div>
           );
