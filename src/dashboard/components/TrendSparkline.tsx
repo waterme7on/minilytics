@@ -168,8 +168,7 @@ export function TrendSparkline({
       </svg>
       {safeActive !== null && (
         <div aria-hidden="true"
-          className="pointer-events-none absolute top-0 z-20 -translate-x-1/2 rounded-lg border border-stone-200 bg-white/95 px-3 py-2 text-xs shadow-md backdrop-blur-sm"
-          style={{ left: `${Math.max(24, Math.min(76, ((safeActive + 0.5) / count) * 100))}%` }}
+          className="pointer-events-none absolute left-1/2 top-0 z-20 max-w-[calc(100%-0.5rem)] -translate-x-1/2 rounded-lg border border-stone-200 bg-white/95 px-3 py-2 text-xs shadow-md backdrop-blur-sm"
         >
           <div className="mb-1 whitespace-nowrap font-semibold text-stone-700">{buckets[safeActive]}</div>
           {series.map((item) => (
