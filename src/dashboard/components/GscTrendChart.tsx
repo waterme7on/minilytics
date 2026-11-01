@@ -41,7 +41,7 @@ export function GscTrendChart({ series }: { series: GscDaily[] }) {
         </div>
       </div>
       {hasActivity ? (
-        <div className="mt-4 h-[230px] min-w-0 sm:h-[285px]" role="img"
+        <div className="mt-4 h-[230px] min-w-0 sm:h-[285px]" role="group"
           aria-label="Daily Google Search clicks and impressions trend for the selected date range">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart accessibilityLayer data={series} margin={{ top: 8, right: 2, left: -8, bottom: 0 }}>
