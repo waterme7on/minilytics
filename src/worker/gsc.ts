@@ -47,7 +47,7 @@ async function googleToken(raw?: string): Promise<string> {
   tokenCache = { value: result.access_token, fingerprint, expires: Date.now() + (result.expires_in ?? 3600) * 1000 };
   return result.access_token;
 }
-function validProperty(value: string): boolean {
+export function validGscProperty(value: string): boolean {
   if (value.startsWith('sc-domain:')) return /^sc-domain:[a-z0-9.-]+\.[a-z]{2,}$/i.test(value);
   try { const url = new URL(value); return ['https:', 'http:'].includes(url.protocol) && !!url.hostname && !url.username && !url.password; }
   catch { return false; }
@@ -72,7 +72,7 @@ export async function configureGsc(c: Context<AppEnv>) {
   const json = await c.req.json<{ property?: string | null }>().catch(() => null);
   if (!json || (json.property !== null && typeof json.property !== 'string')) return c.json({ error: 'Invalid GSC property' }, 400);
   const property = json.property?.trim() || null;
-  if (property && !validProperty(property)) return c.json({ error: 'Invalid property format' }, 400);
+  if (property && !validGscProperty(property)) return c.json({ error: 'Invalid property format' }, 400);
   if (property) {
     try {
       const token = await googleToken(c.env.GSC_SERVICE_ACCOUNT_JSON);
@@ -88,6 +88,15 @@ function dayOffset(offset: number): string {
   date.setUTCDate(date.getUTCDate() + offset);
   return date.toISOString().slice(0, 10);
 }
+export function validGscDates(from: string, to: string, today = dayOffset(0)): boolean {
+  const valid = (value: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const timestamp = Date.parse(value + 'T00:00:00Z');
+    return Number.isFinite(timestamp) && new Date(timestamp).toISOString().slice(0, 10) === value;
+  };
+  return valid(from) && valid(to) && from <= to && to < today &&
+    (Date.parse(to) - Date.parse(from)) / 86_400_000 <= 365;
+}
 export async function gscSearch(c: Context<AppEnv>) {
   const user = c.get('user');
   if (c.env.GOOGLE_CLIENT_ID && c.env.GOOGLE_CLIENT_SECRET && !user.admin) return c.json({ error: 'GSC service account is admin-only' }, 403);
@@ -98,9 +107,7 @@ export async function gscSearch(c: Context<AppEnv>) {
   // Search Console can lag several days; exclude the most recent three UTC dates.
   const from = c.req.query('from') ?? dayOffset(-30);
   const to = c.req.query('to') ?? dayOffset(-3);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to) ||
-      !Number.isFinite(Date.parse(from)) || !Number.isFinite(Date.parse(to)) ||
-      from > to || to > dayOffset(-1) || (Date.parse(to) - Date.parse(from)) / 86400000 > 365) {
+  if (!validGscDates(from, to)) {
     return c.json({ error: 'Select a valid date range of at most 366 days, ending before today' }, 400);
   }
   try {
