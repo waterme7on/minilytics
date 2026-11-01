@@ -86,6 +86,15 @@ describe('GSC periods follow the shared dashboard selector', () => {
     expect(range.available).toBe(true);
   });
 
+  it('caps a long shared custom period instead of rejecting the dashboard selection', () => {
+    const range = resolveGscWindow({
+      period: 'custom', from: '2024-01-10', to: '2026-10-29',
+    }, created, now);
+    expect(range.from).toBe('2025-10-29');
+    expect(range.to).toBe('2026-10-29');
+    expect(range.truncated).toBe(true);
+  });
+
   it('caps All time to the existing 366-day API limit and labels the truncation', () => {
     const range = resolveGscWindow({ period: 'all' }, created, now);
     expect(range.from).toBe('2025-10-31');
