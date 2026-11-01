@@ -36,7 +36,8 @@ export function Dropdown({ button, children, align = 'left' }: { button: ReactNo
   return (
     <div className="relative flex" ref={ref}
       onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
+        // A native date picker can temporarily clear DOM focus; do not dismiss it.
+        if (event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget)) setOpen(false);
       }}
       onKeyDown={(event) => {
         if (event.key === 'Escape' && open) {
