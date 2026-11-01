@@ -96,7 +96,8 @@ export function SelectDropdown({
       event.stopPropagation();
       closeMenu(true);
     } else if (event.key === 'Tab') {
-      closeMenu();
+      // Let the browser move focus first; onBlur will dismiss the menu.
+      return;
     } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Home' || event.key === 'End') {
       event.preventDefault();
       if (!enabled.length) return;
