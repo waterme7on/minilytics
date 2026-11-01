@@ -198,11 +198,17 @@ export async function gscSearch(c: Context<AppEnv>) {
     return c.json({ error: 'Invalid period' }, 400);
   }
   const selection = { period: selectedPeriod, from: c.req.query('from'), to: c.req.query('to') };
-  // Custom dates remain literal PT dates; the dashboard's preset is shared, not duplicated.
-  if (selectedPeriod === 'custom' && (!selection.from || !selection.to ||
-    !validGscDates(selection.from, selection.to, '9999-12-31'))) {
-    return c.json({ error: 'Invalid custom date range' }, 400);
-  }
+  // Preserve the dashboard's custom window even if it exceeds the GSC 366-day
+  // query limit; resolveGscWindow caps the fetch and labels it as truncated.
+  const calendarDate = (value: string | undefined) => {
+    if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const time = Date.parse(value + 'T00:00:00Z');
+    return Number.isFinite(time) && new Date(time).toISOString().slice(0, 10) === value;
+  };
+  if (selectedPeriod === 'custom' && (
+    !calendarDate(selection.from) || !calendarDate(selection.to) ||
+    (selection.from ?? '') > (selection.to ?? '')
+  )) return c.json({ error: 'Invalid custom date range' }, 400);
   const window = resolveGscWindow(selection, c.get('site').created_at);
   const { from, to } = window;
   if (!window.available) {
