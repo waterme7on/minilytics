@@ -3,6 +3,7 @@ import { navigate, useMe } from '../App';
 import { Favicon } from '../components/Icons';
 import { Logo } from '../components/Logo';
 import { Modal } from '../components/Modal';
+import { SelectDropdown } from '../components/SelectDropdown';
 import { TrendSparkline } from '../components/TrendSparkline';
 import { api, type Site, type SiteTrends } from '../lib/api';
 import { fmtNumber } from '../lib/format';
@@ -156,18 +157,15 @@ export function Sites() {
             <div className="mb-1 flex h-4 items-center justify-between gap-2">
               <label htmlFor="site-trend-period" className="text-xs font-medium leading-4 text-stone-500">Period</label>
             </div>
-            <div className="relative">
-              <select
-                id="site-trend-period"
-                className="filter-control truncate pr-7"
-                value={period}
-                title={TREND_PERIODS.find((option) => option.value === period)?.label}
-                onChange={(event) => setPeriod(event.target.value as TrendPeriod)}
-              >
-                {TREND_PERIODS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-              </select>
-              <FilterChevron className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2" />
-            </div>
+            <SelectDropdown
+              id="site-trend-period"
+              ariaLabel="Period"
+              value={period}
+              options={TREND_PERIODS}
+              onChange={(value) => setPeriod(value as TrendPeriod)}
+              className="w-full"
+              buttonClassName="filter-control"
+            />
           </div>
           <div className="relative min-w-0 sm:w-[220px] sm:flex-none" ref={metricsMenuRef}>
             <div className="mb-1 flex h-4 items-center justify-between gap-2">
@@ -249,11 +247,17 @@ export function Sites() {
             Compare dates
           </label>
           {comparisonEnabled && (
-            <select aria-label="Comparison range" className="btn min-h-10 max-w-full text-sm"
-              value={comparisonMode} onChange={(event) => setComparisonMode(event.target.value as CompareMode)}>
-              <option value="previous">Previous period</option>
-              <option value="custom">Custom comparison dates</option>
-            </select>
+            <SelectDropdown
+              ariaLabel="Comparison range"
+              value={comparisonMode}
+              options={[
+                { value: 'previous', label: 'Previous period' },
+                { value: 'custom', label: 'Custom comparison dates' },
+              ]}
+              onChange={(value) => setComparisonMode(value as CompareMode)}
+              className="w-full sm:w-[240px]"
+              buttonClassName="filter-control h-10 text-sm"
+            />
           )}
         </div>
         {comparisonEnabled && comparisonMode === 'custom' && (
@@ -432,11 +436,15 @@ function AddSite({ open, onClose }: { open: boolean; onClose: () => void }) {
           </div>
           <div>
             <label className="label">Revenue currency</label>
-            <select className="input" value={currency} onChange={(e) => setCurrency(e.target.value)}>
-              {CURRENCIES.map((c) => (
-                <option key={c}>{c}</option>
-              ))}
-            </select>
+            <SelectDropdown
+              ariaLabel="Revenue currency"
+              value={currency}
+              options={CURRENCIES.map((code) => ({ value: code, label: code }))}
+              onChange={setCurrency}
+              className="w-full"
+              buttonClassName="input"
+              align="right"
+            />
           </div>
         </div>
         {error && <p className="text-sm text-red-600">{error}</p>}
