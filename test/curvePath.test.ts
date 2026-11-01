@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { monotoneCurvePath, type CurvePoint } from '../src/dashboard/lib/curvePath';
 
 function cubicSegments(path: string) {
-  return [...path.matchAll(/C(-?[\\d.]+),(-?[\\d.]+) (-?[\\d.]+),(-?[\\d.]+) (-?[\\d.]+),(-?[\\d.]+)/g)]
+  return [...path.matchAll(/C(-?[0-9.]+),(-?[0-9.]+) (-?[0-9.]+),(-?[0-9.]+) (-?[0-9.]+),(-?[0-9.]+)/g)]
     .map((match) => match.slice(1).map(Number));
 }
 
