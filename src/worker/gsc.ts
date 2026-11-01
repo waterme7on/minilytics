@@ -10,7 +10,7 @@ let tokenCache: { value: string; expires: number; fingerprint: string } | null =
 function b64url(bytes: Uint8Array): string {
   let binary = '';
   for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-  return btoa(binary).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/, '');
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 function utf8url(text: string): string { return b64url(new TextEncoder().encode(text)); }
 
@@ -28,7 +28,7 @@ async function googleToken(raw?: string): Promise<string> {
   const key = keyFromEnv(raw);
   const fingerprint = key.client_email + ':' + (key.private_key_id ?? '');
   if (tokenCache && tokenCache.fingerprint === fingerprint && Date.now() + 60_000 < tokenCache.expires) return tokenCache.value;
-  const pem = key.private_key.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\\s/g, '');
+  const pem = key.private_key.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\s/g, '');
   const secret = Uint8Array.from(atob(pem), (c) => c.charCodeAt(0));
   const privateKey = await crypto.subtle.importKey('pkcs8', secret, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign']);
   const now = Math.floor(Date.now() / 1000);
@@ -48,7 +48,7 @@ async function googleToken(raw?: string): Promise<string> {
   return result.access_token;
 }
 function validProperty(value: string): boolean {
-  if (value.startsWith('sc-domain:')) return /^sc-domain:[a-z0-9.-]+\\.[a-z]{2,}$/i.test(value);
+  if (value.startsWith('sc-domain:')) return /^sc-domain:[a-z0-9.-]+\.[a-z]{2,}$/i.test(value);
   try { const url = new URL(value); return ['https:', 'http:'].includes(url.protocol) && !!url.hostname && !url.username && !url.password; }
   catch { return false; }
 }
@@ -59,6 +59,8 @@ async function allowedProperties(token: string): Promise<string[]> {
   return (json.siteEntry ?? []).filter((entry) => entry.permissionLevel !== 'siteUnverifiedUser').map((entry) => entry.siteUrl);
 }
 export async function gscProperties(c: Context<AppEnv>) {
+  const user = c.get('user');
+  if (c.env.GOOGLE_CLIENT_ID && c.env.GOOGLE_CLIENT_SECRET && !user.admin) return c.json({ error: 'GSC service account is admin-only' }, 403);
   try {
     const token = await googleToken(c.env.GSC_SERVICE_ACCOUNT_JSON);
     return c.json({ properties: await allowedProperties(token) });
@@ -96,7 +98,7 @@ export async function gscSearch(c: Context<AppEnv>) {
   // Search Console can lag several days; exclude the most recent three UTC dates.
   const from = c.req.query('from') ?? dayOffset(-30);
   const to = c.req.query('to') ?? dayOffset(-3);
-  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(from) || !/^\\d{4}-\\d{2}-\\d{2}$/.test(to) ||
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to) ||
       !Number.isFinite(Date.parse(from)) || !Number.isFinite(Date.parse(to)) ||
       from > to || to > dayOffset(-1) || (Date.parse(to) - Date.parse(from)) / 86400000 > 365) {
     return c.json({ error: 'Select a valid date range of at most 366 days, ending before today' }, 400);
