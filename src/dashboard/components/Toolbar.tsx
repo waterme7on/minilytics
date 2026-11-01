@@ -70,7 +70,7 @@ const Chevron = () => (
 );
 
 function itemCls(active: boolean) {
-  return `flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-stone-100 ${active ? 'font-medium text-ink' : 'text-stone-600'}`;
+  return `flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm outline-none hover:bg-stone-100 focus-visible:bg-stone-100 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-stone-300 ${active ? 'bg-stone-50 font-medium text-ink' : 'text-stone-600'}`;
 }
 
 export function Toolbar({
