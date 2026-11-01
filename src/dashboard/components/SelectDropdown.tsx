@@ -33,6 +33,7 @@ export function SelectDropdown({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [open, setOpen] = useState(false);
+  const [openAbove, setOpenAbove] = useState(false);
   const selectedIndex = options.findIndex((option) => option.value === value);
   const selected = selectedIndex >= 0 ? options[selectedIndex] : null;
   const firstEnabled = options.findIndex((option) => !option.disabled);
@@ -45,6 +46,12 @@ export function SelectDropdown({
 
   function openMenu(initialIndex = selectedIndex) {
     if (disabled || firstEnabled < 0) return;
+    const bounds = triggerRef.current?.getBoundingClientRect();
+    if (bounds) {
+      const expectedHeight = Math.min(256, options.length * 40 + 8);
+      const below = window.innerHeight - bounds.bottom;
+      setOpenAbove(below < expectedHeight + 12 && bounds.top > below);
+    }
     setOpen(true);
     // Focus after the popover has mounted.
     const index = initialIndex >= 0 && !options[initialIndex]?.disabled ? initialIndex : firstEnabled;
@@ -143,7 +150,8 @@ export function SelectDropdown({
           aria-label={ariaLabel || 'Choose an option'}
           aria-labelledby={labelledBy}
           onKeyDown={onOptionsKeyDown}
-          className={`card absolute top-full z-50 mt-2 max-h-64 min-w-full overflow-y-auto overscroll-contain p-1
+          className={`card dropdown-enter absolute z-50 max-h-64 min-w-full overflow-y-auto overscroll-contain p-1
+            ${openAbove ? 'bottom-full mb-2' : 'top-full mt-2'}
             ${align === 'right' ? 'right-0' : 'left-0'} ${menuClassName}`}
         >
           {options.map((option, index) => (
