@@ -137,7 +137,7 @@ export function SelectDropdown({
         onKeyDown={onTriggerKeyDown}
       >
         <span className={`min-w-0 truncate ${selected ? '' : 'text-stone-400'}`}>{selected?.label ?? placeholder}</span>
-        <svg className={`h-4 w-4 shrink-0 text-stone-400 transition-transform duration-150 ${open ? 'rotate-180' : ''}`}
+        <svg className={`h-4 w-4 shrink-0 text-stone-400 transition-transform duration-150 motion-reduce:transition-none ${open ? 'rotate-180' : ''}`}
           viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"
           strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="m4 6 4 4 4-4" />
@@ -161,6 +161,7 @@ export function SelectDropdown({
               type="button"
               role="option"
               aria-selected={value === option.value}
+              title={option.label}
               disabled={option.disabled}
               tabIndex={-1}
               className={`flex w-full min-w-0 items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm
