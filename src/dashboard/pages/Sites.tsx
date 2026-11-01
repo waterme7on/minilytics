@@ -188,13 +188,13 @@ export function Sites() {
               <FilterChevron className="-mr-1" />
             </button>
             {metricsOpen && (
-              <div id="site-trend-metrics-menu" role="group" aria-label="Select up to two shared metrics" className="absolute right-0 top-full z-30 mt-2 w-full min-w-[218px] rounded-xl border border-stone-200 bg-white p-2 shadow-lg">
+              <div id="site-trend-metrics-menu" role="group" aria-label="Select up to two shared metrics" className="card dropdown-enter absolute right-0 top-full z-40 mt-2 w-full min-w-[218px] p-2">
                 <div className="px-2 pb-2 text-xs text-stone-500">Applies to every website</div>
                 {TREND_METRICS.map((item) => {
                   const checked = selectedMetrics.includes(item.value);
                   const disabled = !checked && selectedMetrics.length >= MAX_TREND_METRICS;
                   return (
-                    <label key={item.value} className={`flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-2 text-sm hover:bg-stone-50 ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}>
+                    <label key={item.value} className={`flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-2 text-sm hover:bg-stone-100 ${checked ? 'bg-stone-50 font-medium text-ink' : 'text-stone-600'} ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}>
                       <input
                         type="checkbox"
                         checked={checked}
