@@ -45,7 +45,7 @@ describe('custom dropdowns', () => {
         const path = join(directory, item.name);
         if (item.isDirectory()) inspect(path);
         else if (item.name.endsWith('.tsx')) {
-          expect(readFileSync(path, 'utf8'), `Native <select> in ${path}`).not.toMatch(/<select(?:\\s|>)/);
+          expect(readFileSync(path, 'utf8'), `Native <select> in ${path}`).not.toMatch(/<select(?:\s|>)/);
         }
       }
     }
