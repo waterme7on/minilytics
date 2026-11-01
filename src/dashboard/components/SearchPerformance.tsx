@@ -61,7 +61,7 @@ function metricChange(metric: Metric, current: GscTotals, previous: GscTotals) {
 function MiniTrend({ metric, series }: { metric: Metric; series: GscDaily[] }) {
   const values = series.filter((point) => metric !== 'position' || point.impressions > 0).map((point) => point[metric]);
   if (!values.length || values.every((value) => value === 0)) {
-    return <span className="text-[11px] text-stone-400">No trend</span>;
+    return <span className="text-xs text-stone-400">No trend</span>;
   }
   const low = Math.min(...values);
   const high = Math.max(...values);
@@ -90,13 +90,13 @@ function MetricCard({ metric, label, current, previous, series }: {
   return (
     <div className="min-w-0 rounded-xl border border-stone-200/80 bg-white px-3 py-3.5 sm:px-4">
       <div className="text-xs text-stone-500">{label}</div>
-      <div className="mt-2 flex min-w-0 items-center justify-between gap-1">
+      <div className="mt-2 flex min-w-0 flex-col items-start gap-1 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0 truncate text-xl font-semibold tracking-tight sm:text-2xl">
           {metricValue(metric, current)}
         </div>
         <MiniTrend metric={metric} series={series} />
       </div>
-      <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]">
+      <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
         <span className={'rounded-md px-1.5 py-0.5 font-medium ' + tone}>{change.text}</span>
         <span className="text-stone-400">vs. previous period</span>
       </div>
