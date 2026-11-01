@@ -29,17 +29,33 @@ export function Dropdown({ button, children, align = 'left' }: { button: ReactNo
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
-    const on = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false);
-    document.addEventListener('mousedown', on);
-    return () => document.removeEventListener('mousedown', on);
+    const on = (e: PointerEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false);
+    document.addEventListener('pointerdown', on);
+    return () => document.removeEventListener('pointerdown', on);
   }, [open]);
   return (
-    <div className="relative flex" ref={ref}>
+    <div className="relative flex" ref={ref}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape' && open) {
+          event.preventDefault();
+          event.stopPropagation();
+          setOpen(false);
+          ref.current?.querySelector<HTMLButtonElement>('button')?.focus();
+        }
+        if (event.key === 'ArrowDown' && !open) {
+          event.preventDefault();
+          setOpen(true);
+          requestAnimationFrame(() => ref.current?.querySelector<HTMLButtonElement>('[data-dropdown-menu] button')?.focus());
+        }
+      }}>
       <div className="flex" onClick={() => setOpen((o) => !o)}>
         {button}
       </div>
       {open && (
-        <div className={`card absolute top-full z-40 mt-2 min-w-[200px] overflow-hidden p-1 ${align === 'right' ? 'right-0' : 'left-0'}`}>
+        <div data-dropdown-menu className={`card dropdown-enter absolute top-full z-40 mt-2 max-h-[min(70vh,24rem)] min-w-[200px] overflow-y-auto overscroll-contain p-1 ${align === 'right' ? 'right-0' : 'left-0'}`}>
           {children(() => setOpen(false))}
         </div>
       )}
