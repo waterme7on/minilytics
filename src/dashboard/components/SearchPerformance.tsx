@@ -151,15 +151,15 @@ export function SearchPerformance({ site, period, from, to, reloadKey }: {
   // Previously visited tabs stay cached for this site/date selection; the
   // dashboard Refresh key invalidates both the overview and breakdown cache.
   useEffect(() => {
-    if (!site.gsc_property || !data?.available || cachedRows !== undefined) return;
+    if (!site.gsc_property || !data?.available || !data.from || !data.to || cachedRows !== undefined) return;
     let cancelled = false;
     setRowsPending(rowsKey);
     setRowsFailure(null);
-    const params = new URLSearchParams({ view: 'breakdown', period, dimension });
-    if (period === 'custom' && from && to) {
-      params.set('from', from);
-      params.set('to', to);
-    }
+    // Use the overview's effective PT dates so both areas always show the
+    // same window, even around midnight or when the range was truncated.
+    const params = new URLSearchParams({
+      view: 'breakdown', period: 'custom', dimension, from: data.from, to: data.to,
+    });
     api<BreakdownResult>('/api/sites/' + site.id + '/gsc?' + params)
       .then((result) => {
         if (!cancelled) setRowCache((current) => ({
@@ -174,7 +174,7 @@ export function SearchPerformance({ site, period, from, to, reloadKey }: {
         if (!cancelled) setRowsPending((key) => key === rowsKey ? null : key);
       });
     return () => { cancelled = true; };
-  }, [rangeKey, rowsKey, site.id, site.gsc_property, period, from, to, dimension, data?.available, cachedRows]);
+  }, [rangeKey, rowsKey, site.id, site.gsc_property, period, from, to, dimension, data?.available, data?.from, data?.to, cachedRows]);
 
   async function showProperties() {
     setEditing(true);
