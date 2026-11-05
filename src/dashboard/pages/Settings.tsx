@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { BackButton } from '../components/BackButton';
 import { navigate } from '../App';
 import { Favicon } from '../components/Icons';
+import { SelectDropdown } from '../components/SelectDropdown';
 import { CurrencySelect, TimezoneSelect } from '../components/SiteFields';
 import { buildAiPrompt } from '../lib/aiPrompt';
 import { api, type Site } from '../lib/api';
@@ -521,11 +522,14 @@ function LinkBuilder({ domain }: { domain: string }) {
         </div>
         <div>
           <label className="label">Where you post it</label>
-          <select className="input" value={preset.label} onChange={(e) => setPreset(PRESETS.find((p) => p.label === e.target.value)!)}>
-            {PRESETS.map((p) => (
-              <option key={p.label}>{p.label}</option>
-            ))}
-          </select>
+          <SelectDropdown
+            ariaLabel="Where you post it"
+            value={preset.label}
+            options={PRESETS.map((item) => ({ value: item.label, label: item.label }))}
+            onChange={(value) => setPreset(PRESETS.find((item) => item.label === value)!)}
+            className="w-full"
+            buttonClassName="input"
+          />
         </div>
         <div className="sm:col-span-2">
           <label className="label">Post name</label>

@@ -43,8 +43,13 @@ export function Dashboard({ siteId }: { siteId: string }) {
   // "M" opens the live map, like DataFast.
   useEffect(() => {
     const on = (e: KeyboardEvent) => {
-      const t = e.target as HTMLElement;
-      if (e.key.toLowerCase() === 'm' && !e.metaKey && !e.ctrlKey && !/INPUT|TEXTAREA|SELECT/.test(t.tagName)) setLive(true);
+      // Do not steal typed letters from custom listboxes or focused controls.
+      const interactive = e.target instanceof Element && !!e.target.closest(
+        'input, textarea, select, button, a, [role="listbox"], [role="option"], [contenteditable="true"]',
+      );
+      if (e.key.toLowerCase() === 'm' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.defaultPrevented && !interactive) {
+        setLive(true);
+      }
     };
     window.addEventListener('keydown', on);
     return () => window.removeEventListener('keydown', on);
@@ -102,10 +107,10 @@ export function Dashboard({ siteId }: { siteId: string }) {
         {Object.keys(q.filters).length > 0 && (
           <div className="mt-4 flex flex-wrap items-center gap-2">
             {Object.entries(q.filters).map(([k, v]) => (
-              <span key={k} className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white py-1 pl-3 pr-1 text-sm shadow-card">
-                <span className="text-stone-500">{FILTER_LABELS[k]?.label ?? k} is</span>
-                <span className="flex items-center gap-1.5 font-medium">{renderLabel(FILTER_LABELS[k]?.dim ?? k, { label: v || null })}</span>
-                <button className="rounded-lg px-1.5 text-stone-400 hover:bg-stone-100 hover:text-ink" onClick={() => removeFilter(k)} aria-label="Remove filter">
+              <span key={k} className="flex max-w-full items-center gap-2 rounded-xl border border-stone-200 bg-white py-1 pl-3 pr-1 text-sm shadow-card">
+                <span className="shrink-0 text-stone-500">{FILTER_LABELS[k]?.label ?? k} is</span>
+                <span className="flex min-w-0 items-center gap-1.5 font-medium">{renderLabel(FILTER_LABELS[k]?.dim ?? k, { label: v || null })}</span>
+                <button className="shrink-0 rounded-lg px-1.5 text-stone-400 hover:bg-stone-100 hover:text-ink" onClick={() => removeFilter(k)} aria-label="Remove filter">
                   ✕
                 </button>
               </span>
