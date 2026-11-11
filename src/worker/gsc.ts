@@ -329,8 +329,10 @@ function pacificDay(time: number): string {
 
 /** Include provisional days up to today instead of hiding them. */
 export function trendGscWindow(from: number, to: number, now = Date.now()) {
-  const requestedFrom = pacificDay(from);
-  const requestedTo = pacificDay(to - 1);
+  // Multi-site charts use UTC calendar buckets. Keep the same date labels,
+  // while Google reports each matching date in Pacific Time.
+  const requestedFrom = utcDay(from);
+  const requestedTo = utcDay(to - 1);
   const today = pacificDay(now);
   const oldest = utcDay(Date.parse(today + 'T00:00:00Z') - 365 * DAY_MS);
   const start = requestedFrom < oldest ? oldest : requestedFrom;
