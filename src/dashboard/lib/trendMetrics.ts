@@ -4,13 +4,14 @@ export const TREND_METRICS = [
   { value: 'pageviews', label: 'Pageviews', color: '#e07b5f' },
   { value: 'sessions', label: 'Sessions', color: '#4b8a74' },
   { value: 'impressions', label: 'Search impressions', color: '#8b7bb8' },
+  { value: 'avgDuration', label: 'Session time', color: '#3a8f8f' },
   { value: 'revenue', label: 'Revenue', color: '#b07d3a' },
 ] as const;
 
 export type TrendMetric = (typeof TREND_METRICS)[number]['value'];
 /** Adjustable cap; the menu can show any four of the available metrics at once. */
 export const MAX_TREND_METRICS = 4;
-export const DEFAULT_TREND_METRICS: TrendMetric[] = ['visitors', 'pageviews', 'impressions', 'revenue'];
+export const DEFAULT_TREND_METRICS: TrendMetric[] = ['visitors', 'pageviews', 'impressions', 'avgDuration'];
 
 /** Never an empty selection, never more metrics than the cap. */
 export function toggleTrendMetric(current: TrendMetric[], metric: TrendMetric): TrendMetric[] {
