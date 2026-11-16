@@ -4,7 +4,7 @@ import type { AppEnv } from './env';
 import { gscDailyImpressions, gscHourlyImpressions, googleToken, trendGscHourlyWindow, trendGscWindow } from './gsc';
 import { bucketLabels, bucketSql, resolveRange, type Granularity, type Range } from './lib/time';
 
-export const TREND_METRICS = ['visitors', 'pageviews', 'sessions', 'impressions'] as const;
+export const TREND_METRICS = ['visitors', 'pageviews', 'sessions', 'impressions', 'avgDuration'] as const;
 export type SiteTrendMetric = (typeof TREND_METRICS)[number];
 
 export const SITE_TREND_PERIODS = ['24h', '7d', '30d', '90d', '12m', 'custom'] as const;
@@ -71,6 +71,7 @@ interface TrendRow {
   visitors: number;
   pageviews: number;
   sessions: number;
+  avg_duration: number;
 }
 
 interface TotalRow {
@@ -78,6 +79,7 @@ interface TotalRow {
   visitors: number;
   pageviews: number;
   sessions: number;
+  avg_duration: number;
 }
 
 interface RevenueRow {
@@ -97,6 +99,7 @@ interface TrendPoint {
   sessions: number;
   impressions: number | null;
   revenue: number;
+  avgDuration: number;
 }
 
 type GscState = {
@@ -120,7 +123,8 @@ function summaryStatements(db: AppEnv['Bindings']['DB'], access: ReturnType<type
       `SELECT ss.site_id, ${bucket} AS bucket,
               COUNT(DISTINCT ss.visitor_id) AS visitors,
               COUNT(*) AS sessions,
-              COALESCE(SUM(ss.pageviews), 0) AS pageviews
+              COALESCE(SUM(ss.pageviews), 0) AS pageviews,
+              COALESCE(AVG(ss.duration), 0) AS avg_duration
        FROM sessions ss JOIN sites s ON s.id = ss.site_id
        WHERE ${where} GROUP BY ss.site_id, bucket ORDER BY bucket`,
     ).bind(...params),
@@ -128,7 +132,8 @@ function summaryStatements(db: AppEnv['Bindings']['DB'], access: ReturnType<type
       `SELECT ss.site_id,
               COUNT(DISTINCT ss.visitor_id) AS visitors,
               COUNT(*) AS sessions,
-              COALESCE(SUM(ss.pageviews), 0) AS pageviews
+              COALESCE(SUM(ss.pageviews), 0) AS pageviews,
+              COALESCE(AVG(ss.duration), 0) AS avg_duration
        FROM sessions ss JOIN sites s ON s.id = ss.site_id
        WHERE ${where} GROUP BY ss.site_id`,
     ).bind(...params),
@@ -185,12 +190,14 @@ function summarize(
       sessions: row?.sessions ?? 0,
       impressions: null,
       revenue: revenueTotalBySite.get(id) ?? 0,
+      avgDuration: Math.round(row?.avg_duration ?? 0),
       series: buckets.map((label) => ({
         visitors: points?.get(label)?.visitors ?? 0,
         pageviews: points?.get(label)?.pageviews ?? 0,
         sessions: points?.get(label)?.sessions ?? 0,
         impressions: null,
         revenue: revenuePoints?.get(label)?.revenue ?? 0,
+        avgDuration: Math.round(points?.get(label)?.avg_duration ?? 0),
       })),
     };
   }

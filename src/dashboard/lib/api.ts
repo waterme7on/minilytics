@@ -75,6 +75,7 @@ export interface SiteTrendPoint {
   sessions: number;
   impressions: number | null;
   revenue: number;
+  avgDuration: number;
 }
 
 export interface SiteTrendGsc {

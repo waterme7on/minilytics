@@ -7,7 +7,7 @@ import { PrivacyToggle } from '../components/PrivacyToggle';
 import { SelectDropdown } from '../components/SelectDropdown';
 import { TrendSparkline } from '../components/TrendSparkline';
 import { api, type Site, type SiteTrends } from '../lib/api';
-import { fmtMoney, fmtNumber } from '../lib/format';
+import { fmtDuration, fmtMoney, fmtNumber } from '../lib/format';
 import { usePref } from '../lib/prefs';
 import { useApi } from '../lib/useApi';
 import { currencyDecimals } from '../../shared/currency';
@@ -308,7 +308,9 @@ export function Sites() {
           const chartMetrics = selectedMetrics.filter((metric) => metric !== 'impressions' || gsc?.available);
           const formatMetric = (metric: TrendMetric, value: number) => metric === 'revenue'
             ? fmtMoney(value, s.currency, currencyDecimals(s.currency), true)
-            : fmtNumber(value);
+            : metric === 'avgDuration'
+              ? fmtDuration(value)
+              : fmtNumber(value);
           const detailParams = new URLSearchParams({ period });
           if (period === 'custom') {
             detailParams.set('from', customFrom);
@@ -394,7 +396,7 @@ export function Sites() {
                         label: meta.label,
                         color: meta.color,
                         values: (trend?.series ?? []).map((point) => point[metric] ?? 0),
-                        format: metric === 'revenue' ? (value: number) => formatMetric(metric, value) : undefined,
+                        format: metric === 'revenue' || metric === 'avgDuration' ? (value: number) => formatMetric(metric, value) : undefined,
                       };
                     })}
                     comparison={trends?.comparison ? {
@@ -406,7 +408,7 @@ export function Sites() {
                           label: meta.label,
                           color: meta.color,
                           values: (compared?.series ?? trends.comparison!.buckets.map(() => null)).map((point) => point?.[metric] ?? 0),
-                          format: metric === 'revenue' ? (value: number) => formatMetric(metric, value) : undefined,
+                          format: metric === 'revenue' || metric === 'avgDuration' ? (value: number) => formatMetric(metric, value) : undefined,
                         };
                       }),
                     } : null}
