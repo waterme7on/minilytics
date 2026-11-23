@@ -75,14 +75,23 @@ export interface Ctx {
   offset: number;
 }
 
-/** Stats context for callers without a Hono request, e.g. the read-only agent API. */
-export function statsCtx(db: D1Database, site: Site, q: Record<string, string | undefined>): Ctx {
-  const range = resolveRange(q, site.timezone, site.created_at);
-  return { db, site, range, filters: parseFilters(q.filters), offset: tzOffset(site.timezone, range.to) };
+export function makeCtx(c: Context<AppEnv>): Ctx {
+  return ctxFor(c.env.DB, c.get('site'), c.req.query());
 }
 
-export function makeCtx(c: Context<AppEnv>): Ctx {
-  return statsCtx(c.env.DB, c.get('site'), c.req.query());
+/** Stats context for callers without a Hono request, e.g. the read-only agent API. */
+export function statsCtx(db: D1Database, site: Site, q: Record<string, string | undefined>): Ctx {
+  return ctxFor(db, site, q);
+}
+
+/** Same as makeCtx, for callers that aren't a dashboard request (the MCP server). */
+export function ctxFor(
+  db: D1Database,
+  site: Site,
+  q: { period?: string; from?: string; to?: string; granularity?: string; filters?: string },
+): Ctx {
+  const range = resolveRange(q, site.timezone, site.created_at);
+  return { db, site, range, filters: parseFilters(q.filters), offset: tzOffset(site.timezone, range.to) };
 }
 
 function sessionsWhere(ctx: Ctx, from = ctx.range.from, to = ctx.range.to) {
@@ -345,7 +354,7 @@ export async function customers(ctx: Ctx) {
   const join = hasFilters(ctx.filters) ? 'JOIN' : 'LEFT JOIN';
   const res = await db
     .prepare(
-      `SELECT p.id, p.ts, p.amount, p.currency, p.renewal, p.matched_by, p.email AS pay_email, p.name AS pay_name, p.visitor_id, p.session_id,
+      `SELECT p.id, p.ts, p.amount, p.currency, p.original_amount, p.original_currency, p.renewal, p.matched_by, p.email AS pay_email, p.name AS pay_name, p.visitor_id, p.session_id,
               v.first_seen, v.name, v.email, v.user_id,
               s.source, s.channel, s.referrer_domain, s.utm_campaign, s.ref, s.country, s.city, s.device, s.os, s.browser, s.entry_page,
               (SELECT COUNT(*) FROM sessions s2 WHERE s2.site_id = p.site_id AND s2.visitor_id = p.visitor_id AND s2.started_at <= p.ts) AS visits

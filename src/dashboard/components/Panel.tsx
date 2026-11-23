@@ -129,8 +129,8 @@ function Bars({
         return (
           <div key={`${r.label}-${i}`} className="group relative flex min-h-11 items-center rounded-lg sm:min-h-10">
             <div className="absolute inset-0 flex">
-              <div className="rounded-l-lg bg-visitorsSoft transition-all" style={{ width: `${vw}%`, minWidth: r.visitors ? 4 : 0 }} />
-              {rw > 0 && <div className="rounded-r-lg bg-revenueSoft" style={{ width: `${rw}%` }} />}
+              <div className="rounded-l-lg bg-indigo-50/70 transition-all group-hover:bg-indigo-100/70" style={{ width: `${vw}%`, minWidth: r.visitors ? 4 : 0 }} />
+              {rw > 0 && <div className="rounded-r-lg bg-emerald-50 transition-all group-hover:bg-emerald-100/70" style={{ width: `${rw}%` }} />}
             </div>
             <div className="pointer-events-none absolute inset-0 hidden rounded-lg ring-1 ring-stone-300/70 group-hover:block group-focus-within:block" />
             <button
@@ -208,7 +208,8 @@ export function Panel({ tabs }: { tabs: TabDef[] }) {
           onClick={() => setSort((s) => (s === 'visitors' ? 'revenue' : 'visitors'))}
           title="Sort by visitors or revenue"
         >
-          {sort === 'visitors' ? 'Visitors' : 'Revenue'} <span className="text-stone-400">↑↓</span>
+          <span>{sort === 'visitors' ? 'Visitors' : 'Revenue'}</span>
+          <span className="text-zinc-400">↕</span>
         </button>
       </div>
       <div className={`flex-1 ${loading && !data ? 'animate-pulse' : ''}`}>
@@ -217,8 +218,8 @@ export function Panel({ tabs }: { tabs: TabDef[] }) {
         {data && <Bars rows={data} dim={active} tab={tab} sort={sort} limit={10} onPick={pick} onDetails={setDetailRow} />}
       </div>
       {data && data.length > 10 && (
-        <button className="mx-auto mt-3 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-stone-500 hover:text-ink" onClick={() => setDetails(true)}>
-          ⛶ Details
+        <button className="mx-auto mt-3 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-400 hover:text-zinc-800 transition-colors" onClick={() => setDetails(true)}>
+          Show all ({data.length}) →
         </button>
       )}
       <Modal open={details} onClose={() => setDetails(false)} title={tab.label} width="max-w-3xl">
@@ -259,7 +260,7 @@ export function Panel({ tabs }: { tabs: TabDef[] }) {
         <div className="hidden overflow-x-auto sm:block">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-stone-500">
+              <tr className="border-b border-zinc-100 text-left text-zinc-400 font-medium pb-2">
                 <th className="pb-2 font-medium">{tab.label}</th>
                 <th className="pb-2 text-right font-medium">Visitors</th>
                 <th className="pb-2 text-right font-medium">Revenue</th>

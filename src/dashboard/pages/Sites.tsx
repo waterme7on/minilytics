@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { navigate, useMe } from '../App';
+import { ConnectAI } from '../components/ConnectAI';
 import { Favicon } from '../components/Icons';
 import { Logo } from '../components/Logo';
 import { Modal } from '../components/Modal';
+import { TimezoneSelect } from '../components/SiteFields';
 import { PrivacyToggle } from '../components/PrivacyToggle';
 import { SelectDropdown } from '../components/SelectDropdown';
 import { TrendSparkline } from '../components/TrendSparkline';
@@ -68,6 +70,7 @@ export function Sites() {
   const { me } = useMe();
   const [sites, setSites] = useState<Site[] | null>(null);
   const [adding, setAdding] = useState(false);
+  const [connecting, setConnecting] = useState(false);
   const [period, setPeriod] = usePref<TrendPeriod>('ml_sites_period', '7d');
   // Saved preferences may still hold the removed calendar-day periods.
   useEffect(() => {
@@ -158,6 +161,9 @@ export function Sites() {
           )}
           <PrivacyToggle className="btn h-9 w-9 justify-center px-0 sm:h-10 sm:w-10" />
           <button className="btn px-2.5 sm:px-3.5" onClick={logout}>Log out</button>
+          <button className="btn px-2.5 sm:px-3.5" onClick={() => setConnecting(true)} title="Ask Claude, ChatGPT or Cursor about your analytics">
+            ✦ Connect AI
+          </button>
           <button className="btn-dark px-2.5 sm:px-4" onClick={() => setAdding(true)}>
             <span className="sm:hidden">+ Add</span><span className="hidden sm:inline">+ Add website</span>
           </button>
@@ -426,11 +432,12 @@ export function Sites() {
           );
         })}
         {sites && !sites.length && (
-          <div className="card col-span-full p-10 text-center text-stone-500">No websites yet. Add your first one to get a tracking snippet.</div>
+          <div className="card col-span-full p-10 text-center text-zinc-400">No websites yet. Add your first one to get a tracking snippet.</div>
         )}
       </div>
       {sites?.length ? <p className="mt-4 text-xs text-stone-400">Chart buckets use UTC; Search Console groups dates in Pacific Time. Recent impressions are provisional and may arrive hours late. The same periods and metrics apply to every website card.</p> : null}
       <AddSite open={adding} onClose={() => setAdding(false)} />
+      <ConnectAI open={connecting} onClose={() => setConnecting(false)} />
     </div>
   );
 }
@@ -470,7 +477,7 @@ function AddSite({ open, onClose }: { open: boolean; onClose: () => void }) {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="label">Timezone</label>
-            <input className="input" value={timezone} onChange={(e) => setTimezone(e.target.value)} />
+            <TimezoneSelect value={timezone} onChange={setTimezone} />
           </div>
           <div>
             <label className="label">Revenue currency</label>

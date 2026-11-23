@@ -1,6 +1,6 @@
 import { displayName } from '../../shared/names';
 import { useDash } from '../lib/context';
-import { countryName, fmtAgo, fmtDateTime, fmtDuration } from '../lib/format';
+import { countryName, fmtAgo, fmtDateTime, fmtDuration, fmtPaidIn } from '../lib/format';
 import { useApi } from '../lib/useApi';
 import { Avatar, BrowserIcon, DeviceIcon, Flag, OSIcon, SourceIcon } from './Icons';
 import { Modal } from './Modal';
@@ -109,7 +109,9 @@ export function VisitorModal({ visitorId, onClose }: { visitorId: string | null;
                         <span className="w-14 shrink-0 text-xs leading-5 text-stone-400">
                           {new Intl.DateTimeFormat('en', { timeZone: site.timezone, hour: 'numeric', minute: '2-digit' }).format(x.ts)}
                         </span>
-                        <span className="font-semibold text-revenue">💰 {x.kind === 'refund' ? 'Refund' : 'Paid'} {money(x.amount)}</span>
+                        <span className="font-semibold text-revenue">💰 {x.kind === 'refund' ? 'Refund' : 'Paid'} {money(x.amount)}
+                          {fmtPaidIn(x) && <span className="font-normal text-stone-500"> ({fmtPaidIn(x)})</span>}
+                        </span>
                       </li>
                     ))}
                   </ol>
@@ -124,7 +126,10 @@ export function VisitorModal({ visitorId, onClose }: { visitorId: string | null;
                     <span className="min-w-0">
                       {fmtDateTime(x.ts, site.timezone)} · {x.kind === 'refund' ? 'Refund' : x.renewal ? 'Renewal' : 'Payment'}
                     </span>
-                    <span className="font-medium">{money(x.amount)}</span>
+                    <span className="font-medium">
+                      {fmtPaidIn(x) && <span className="mr-1.5 font-normal text-stone-500">{fmtPaidIn(x)} →</span>}
+                      {money(x.amount)}
+                    </span>
                   </div>
                 ))}
               </div>
