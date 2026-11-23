@@ -23,6 +23,19 @@ const GRANULARITIES = [
   { value: 'month', label: 'Monthly' },
 ];
 
+type Granularity = (typeof GRANULARITIES)[number]['value'];
+
+function granularitiesForSpan(span: number): Granularity[] {
+  const hour = 3_600_000;
+  const day = 24 * hour;
+  if (span <= 2 * day + hour) return ['hour'];
+  if (span <= 7 * day + hour) return ['hour', 'day'];
+  if (span <= 31 * day + hour) return ['day', 'week'];
+  if (span <= 120 * day + hour) return ['day', 'week', 'month'];
+  if (span <= 400 * day + hour) return ['week', 'month'];
+  return ['month'];
+}
+
 export function Dropdown({ button, children, align = 'left' }: { button: ReactNode; children: (close: () => void) => ReactNode; align?: 'left' | 'right' }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -112,10 +125,13 @@ export function Toolbar({
     update({ period: 'custom', from: dayInTz(nf, site.timezone), to: dayInTz(Math.min(nt, Date.now()), site.timezone) });
   }
   const canForward = overview ? overview.range.to < Date.now() - 60_000 : false;
+  const allowedGranularities = granularitiesForSpan(overview ? overview.range.to - overview.range.from : 30 * 86_400_000);
+  const requestedGranularity = q.granularity as Granularity | undefined;
+  const currentGranularity = requestedGranularity && allowedGranularities.includes(requestedGranularity) ? requestedGranularity : overview?.range.granularity;
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <BackButton label="" className="btn h-11 w-11 justify-center px-0" />
+      <BackButton to="/" label="" className="btn h-9 w-9 justify-center px-0 text-zinc-600" />
       <Dropdown
         button={
           <button className="btn h-11 px-4 text-base">
@@ -135,13 +151,15 @@ export function Toolbar({
                 className={`${itemCls(s.id === site.id)} privacy-blur`}
                 onClick={() => {
                   close();
-                  navigate(`/site/${s.id}${window.location.search}`);
+                  // Switching sites replaces the history entry, so the browser's back button returns to the
+                  // all-websites page rather than stepping through every site viewed.
+                  navigate(`/site/${s.id}${window.location.search}`, { replace: true });
                 }}
               >
-                <Favicon domain={s.domain} size={16} /> {s.name}
+                <Favicon domain={s.domain} size={15} /> {s.name}
               </button>
             ))}
-            <div className="my-1 border-t border-stone-100" />
+            <div className="my-1 border-t border-zinc-100" />
             <button className={itemCls(false)} onClick={() => navigate(`/site/${site.id}/settings`)}>
               ⚙️ Site settings & install
             </button>
@@ -152,13 +170,13 @@ export function Toolbar({
         )}
       </Dropdown>
 
-      <div className="flex h-11 items-stretch rounded-xl border border-stone-200 bg-white shadow-card">
-        <button className="rounded-l-xl px-3 text-xl text-stone-500 hover:bg-stone-50" onClick={() => shift(-1)} aria-label="Previous period">
+      <div className="flex h-9 items-stretch rounded-lg border border-zinc-200 bg-white shadow-sm">
+        <button className="rounded-l-lg px-2.5 text-base text-zinc-500 hover:bg-zinc-50 transition-colors" onClick={() => shift(-1)} aria-label="Previous period">
           ‹
         </button>
         <Dropdown
           button={
-            <button className="flex h-full items-center gap-2 border-x border-stone-200 px-4 text-base font-medium hover:bg-stone-50">
+            <button className="flex h-full items-center gap-1.5 border-x border-zinc-200 px-3 text-xs font-medium text-zinc-700 hover:bg-zinc-50 transition-colors">
               {label} <Chevron />
             </button>
           }
@@ -207,16 +225,16 @@ export function Toolbar({
 
       <Dropdown
         button={
-          <button className="btn h-11 px-4 text-base">
-            {GRANULARITIES.find((g) => g.value === (q.granularity ?? overview?.range.granularity))?.label ?? 'Daily'} <Chevron />
+          <button className="btn h-9 px-3 text-xs font-medium text-zinc-700">
+            {GRANULARITIES.find((g) => g.value === currentGranularity)?.label ?? 'Daily'} <Chevron />
           </button>
         }
       >
         {(close) =>
-          GRANULARITIES.map((g) => (
+          GRANULARITIES.filter((g) => allowedGranularities.includes(g.value)).map((g) => (
             <button
               key={g.value}
-              className={itemCls((q.granularity ?? overview?.range.granularity) === g.value)}
+              className={itemCls(currentGranularity === g.value)}
               onClick={() => {
                 close();
                 update({ granularity: g.value });
@@ -228,8 +246,8 @@ export function Toolbar({
         }
       </Dropdown>
 
-      <button className="btn h-11 px-4 text-base" onClick={onLive} title="Live map (M)">
-        <span className="h-2 w-2 animate-pulse rounded-full bg-green-500" /> Live
+      <button className="btn h-9 px-3 text-xs font-medium text-zinc-700" onClick={onLive} title="Live map (M)">
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" /> Live
       </button>
 
       <PrivacyToggle />

@@ -1,14 +1,19 @@
 import { SelectDropdown } from '../components/SelectDropdown';
 import { useEffect, useState, type ReactNode } from 'react';
 import { BackButton } from '../components/BackButton';
+import { Code, CopyButton, CopyField } from '../components/Copy';
 import { navigate } from '../App';
 import { Favicon } from '../components/Icons';
 import { PrivacyToggle } from '../components/PrivacyToggle';
+import { CurrencySelect, TimezoneSelect } from '../components/SiteFields';
 import { buildAiPrompt } from '../lib/aiPrompt';
 import { api, type Site } from '../lib/api';
 import { fmtMoney } from '../lib/format';
+import { DatafastImport } from '../components/DatafastImport';
 
 const DOCS = 'https://github.com/surendrapandar/minilytics#';
+
+const SMALL_BUTTON = 'rounded-md px-2 py-0.5 text-xs font-medium transition';
 
 function Section({ title, desc, docs, children }: { title: string; desc?: ReactNode; docs?: string; children: ReactNode }) {
   return (
@@ -28,47 +33,6 @@ function DocsLink({ anchor, children = 'Docs →' }: { anchor: string; children?
     <a className="shrink-0 text-sm font-medium text-stone-500 hover:text-ink" href={DOCS + anchor} target="_blank" rel="noreferrer">
       {children}
     </a>
-  );
-}
-
-const SMALL_BUTTON = 'rounded-md px-2 py-0.5 text-xs font-medium transition';
-
-function CopyButton({ text, label = 'Copy', className = '' }: { text: string; label?: string; className?: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      className={className}
-      onClick={() => {
-        navigator.clipboard.writeText(text);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
-      }}
-    >
-      {copied ? '✓ Copied' : label}
-    </button>
-  );
-}
-
-/** A code block with a small header bar, so the copy button never covers the code. */
-function Code({ label, children }: { label?: string; children: string }) {
-  return (
-    <div className="overflow-hidden rounded-xl bg-stone-900">
-      <div className="flex items-center justify-between border-b border-white/10 px-4 py-1.5">
-        <span className="font-mono text-xs text-stone-400">{label}</span>
-        <CopyButton text={children} className={`${SMALL_BUTTON} text-stone-300 hover:bg-white/10 hover:text-white`} />
-      </div>
-      <code className="code rounded-none">{children}</code>
-    </div>
-  );
-}
-
-/** A single line to copy, e.g. a webhook URL. */
-function CopyField({ value }: { value: string }) {
-  return (
-    <div className="flex items-center gap-2 rounded-xl border border-stone-200 bg-stone-50 py-1.5 pl-3 pr-1.5">
-      <code className="min-w-0 flex-1 truncate font-mono text-[13px]">{value}</code>
-      <CopyButton text={value} className={`${SMALL_BUTTON} border border-stone-200 bg-white hover:bg-stone-100`} />
-    </div>
   );
 }
 
@@ -353,6 +317,13 @@ window.minilytics('identify', { email: user.email, name: user.name });`}</Code>
 
       <LinkBuilder domain={site.domain} />
 
+      <Section
+        title="Import data"
+        desc="Import historical visitors, pageviews, sources, and revenue from DataFast or Plausible CSV / ZIP exports."
+      >
+        <DatafastImport site={site} onSuccess={() => setSaved('Data imported!')} />
+      </Section>
+
       <Section title="General">
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
@@ -365,11 +336,11 @@ window.minilytics('identify', { email: user.email, name: user.name });`}</Code>
           </div>
           <div>
             <label className="label">Timezone</label>
-            <input className="input" value={form.timezone ?? ''} onChange={(e) => set({ timezone: e.target.value })} />
+            <TimezoneSelect value={form.timezone ?? 'UTC'} onChange={(timezone) => set({ timezone })} />
           </div>
           <div>
             <label className="label">Revenue currency</label>
-            <input className="input" value={form.currency ?? ''} maxLength={3} onChange={(e) => set({ currency: e.target.value })} />
+            <CurrencySelect value={form.currency ?? 'USD'} onChange={(currency) => set({ currency })} />
           </div>
         </div>
         <button className="btn-dark mt-4" onClick={() => save({ name: form.name, domain: form.domain, timezone: form.timezone, currency: form.currency })}>
@@ -585,6 +556,7 @@ await stripe.checkout.sessions.create({
   metadata: {
     ml_visitor_id: jar.get('ml_vid')?.value ?? '',
     ml_session_id: jar.get('ml_sid')?.value ?? '',
+    ml_site_id: '${site.id}', // only needed if one Stripe account sells for several sites
   },
 });`}</Code>
           <p className="text-stone-500">

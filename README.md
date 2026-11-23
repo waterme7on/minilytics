@@ -62,6 +62,8 @@ Cloudflare's free plan.
 - Anonymous visitors get friendly, stable names like "brown fox"
 - Click any row to filter the whole dashboard (for example "only visitors from the launch tweet")
 - Multiple websites, one login; the all-websites page supports Today, Yesterday, custom UTC dates (including a single day), and optional previous-period or independently selected date comparisons with animated trends
+- **Import from DataFast / Plausible**: upload historical exports (.zip or .csv) from the web dashboard or CLI
+- **Ask your AI**: connect Claude, ChatGPT or Cursor over MCP and ask "which tweets made me money this month?" ([how](#use-it-from-ai-assistants-mcp))
 
 ## Optional: Google Search Console
 
@@ -240,6 +242,10 @@ clicked (unless you already set your own). Set the link's confirmation page to r
 
 Subscription renewals (`invoice.paid`) are credited to the visitor who first subscribed. Refunds are subtracted.
 
+One Stripe account selling for several of your sites? Point each site's webhook at Stripe as usual: a payment is
+skipped by sites it clearly isn't for (the buyer was only seen on another site, or a renewal from a customer who only
+paid on another site). To make it explicit, add `ml_site_id: '<SITE_ID>'` to the checkout's `metadata`.
+
 ### How credit is given
 
 A payment goes to the paying visitor's last visit that came from a real source (last non-direct
@@ -274,6 +280,48 @@ curl "https://YOUR-HOST/api/v1/analytics/sites/SITE_ID/gsc?dimension=query&perio
 ```
 
 The overview and breakdown endpoints accept the same `period`, `from`, `to` and `filters` query parameters as the dashboard. The GSC endpoint accepts `dimension` (`query`, `page`, `country`, `device`), `view` (`all`, `overview`, `breakdown`) and the same date parameters; it returns 403 when the token lacks `gsc:read`.
+
+## Import from DataFast or Plausible
+
+You can import historical analytics and revenue attribution into Minilytics from DataFast or Plausible export archives (`.zip`) or individual report `.csv` files.
+
+### From the Dashboard UI
+1. Open your site's **Settings & install**.
+2. Scroll to the **Import data** section.
+3. Drag and drop your `.zip` export or `.csv` files.
+4. Inspect the summary card (visitors, pageviews, detected date range, revenue).
+5. Click **Start Import**. The dashboard will insert batches in real time with progress tracking.
+
+### From the CLI (ideal for massive histories)
+```bash
+# Local development D1 database:
+npm run import:datafast -- --site <site-id> ./datafast-export.zip
+
+# Production Cloudflare D1 database:
+npm run import:datafast -- --site <site-id> --remote ./datafast-export.zip
+```
+
+## Use it from AI assistants (MCP)
+
+Minilytics is also an [MCP](https://modelcontextprotocol.io) server, so Claude, ChatGPT, Cursor and other AI tools can read your analytics and answer questions like *"Which sources made the most money this month?"*, *"Why did revenue drop this week?"* or *"Where do visitors drop off between /pricing and checkout?"*.
+
+In the dashboard click **✦ Connect AI** for copy-paste setup for each app. The server URL is:
+
+```
+https://YOUR-HOST/mcp
+```
+
+- **Claude (web/desktop)**: Settings → Connectors → *Add custom connector* → paste the URL → *Connect* → *Allow access*.
+- **ChatGPT**: Settings → Apps & Connectors → Advanced → turn on *Developer mode* → *Create* → paste the URL, OAuth.
+- **Claude Code**: `claude mcp add --transport http minilytics https://YOUR-HOST/mcp`, then `/mcp` → *Authenticate*.
+- **Cursor**: `{"mcpServers": {"minilytics": {"url": "https://YOUR-HOST/mcp"}}}` in `~/.cursor/mcp.json`.
+- **Anything else**: create a *personal token* under Connect AI and send `Authorization: Bearer mlp_...`.
+
+Apps connect with OAuth (dynamic client registration and PKCE). You sign in to Minilytics and approve access, nothing to copy. Access is **read-only**: nothing can be changed or deleted. Every connected app and token is listed under Connect AI and can be disconnected at any time.
+
+**Tools:** `list_sites`, `get_overview` (KPIs vs previous period + chart), `get_breakdown` (by source, channel, campaign, page, country, device, goal… sortable by revenue), `get_realtime`, `list_customers` (who paid and where they came from), `list_visitors`, `get_visitor` (one person's full journey), `list_funnels`, `get_funnel` (saved or ad-hoc steps). All take the same periods and filters as the dashboard.
+
+**Cost:** it runs inside the same Worker and D1 database, with no extra services. Results are capped (100 rows max) and each token is limited to 150 calls per 5 minutes, so a chat costs a handful of requests and stays well inside the free plan.
 
 ## Accuracy notes
 

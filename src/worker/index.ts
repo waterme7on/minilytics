@@ -18,13 +18,34 @@ import {
 import { passwordsMatch, randomId } from './lib/crypto';
 import { handleDodoWebhook, handleGoalApi, handlePaymentApi, handleStripeWebhook, learnDodoProducts, rematchPayments } from './payments';
 import { rememberOwnerDevice } from './owner';
+import { mcpOther, mcpPost } from './mcp';
+import { authorizePage, authorizeSubmit, authServerMetadata, protectedResourceMetadata, registerClient, revoke, token } from './oauth';
+import { createPersonalToken, listTokens, revokeGrant } from './tokens';
+import { convertForeignPayments } from './fx';
 import { breakdown, customers, funnel, makeCtx, overview, realtime, sparklines, statsCtx, visitorProfile, visitors, type FunnelStep } from './stats';
+import { handleClearDatafastImport, handleImportBatch } from './importer';
 import { siteTrends } from './siteTrends';
 import { configureGsc, gscProperties, gscSearch } from './gsc';
 
 const app = new Hono<AppEnv>();
 const MAX_FAILURES = 10;
 const LOCKOUT_MS = 15 * 60_000;
+
+// Basic hardening for everything the Worker answers (API and app pages). Static files get the same
+// headers from public/_headers. The tracking script and endpoint stay embeddable on customers' sites.
+app.use('*', async (c, next) => {
+  await next();
+  c.header('X-Content-Type-Options', 'nosniff');
+  c.header('Referrer-Policy', 'strict-origin-when-cross-origin');
+  if (c.req.path.startsWith('/api/') || c.req.path === '/mcp' || c.req.path.startsWith('/oauth/')) {
+    // Stats, settings and secrets must never sit in a shared or browser cache.
+    if (c.req.path !== '/api/event' && !c.res.headers.has('Cache-Control')) c.header('Cache-Control', 'no-store');
+  } else {
+    // The dashboard can't be framed by another site (clickjacking).
+    c.header('X-Frame-Options', 'DENY');
+    c.header('Content-Security-Policy', "frame-ancestors 'none'; object-src 'none'; base-uri 'self'");
+  }
+});
 
 // ---------- public: tracking, webhooks, server-side API
 
@@ -35,6 +56,41 @@ app.post('/api/webhooks/stripe/:siteId', handleStripeWebhook);
 app.post('/api/v1/payments', handlePaymentApi);
 app.post('/api/v1/goals', handleGoalApi);
 
+// ---------- AI assistants: MCP server + the OAuth flow that hands out its tokens
+// Bearer tokens only (no cookies), so any origin may call these: browser-based MCP clients need CORS.
+
+const aiCors = cors({
+  origin: '*',
+  allowMethods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Authorization', 'Content-Type', 'Mcp-Protocol-Version', 'Mcp-Session-Id', 'Last-Event-ID'],
+  exposeHeaders: ['WWW-Authenticate', 'Mcp-Session-Id', 'Mcp-Protocol-Version'],
+  maxAge: 86400,
+});
+app.use('/mcp', aiCors);
+app.use('/.well-known/*', aiCors);
+for (const p of ['/oauth/token', '/oauth/register', '/oauth/revoke']) app.use(p, aiCors);
+
+app.post('/mcp', mcpPost);
+app.on(['GET', 'DELETE', 'PUT', 'PATCH'], '/mcp', mcpOther);
+// Some clients append the resource path to the well-known URLs (RFC 9728 / RFC 8414 path forms).
+app.get('/.well-known/oauth-protected-resource', protectedResourceMetadata);
+app.get('/.well-known/oauth-protected-resource/mcp', protectedResourceMetadata);
+app.get('/.well-known/oauth-authorization-server', authServerMetadata);
+app.get('/.well-known/oauth-authorization-server/mcp', authServerMetadata);
+app.get('/.well-known/openid-configuration', authServerMetadata);
+app.post('/oauth/register', registerClient);
+app.get('/oauth/authorize', authorizePage);
+app.post('/oauth/authorize', authorizeSubmit);
+app.post('/oauth/token', token);
+app.post('/oauth/revoke', revoke);
+
+// Personal tokens and connected apps, managed from the dashboard.
+app.use('/api/tokens', requireUser);
+app.use('/api/tokens/*', requireUser);
+app.get('/api/tokens', listTokens);
+app.post('/api/tokens', createPersonalToken);
+app.delete('/api/tokens/:id', revokeGrant);
+
 // ---------- login
 
 app.post('/api/auth/login', async (c) => {
@@ -43,20 +99,20 @@ app.post('/api/auth/login', async (c) => {
     return c.json({ error: 'Set ADMIN_PASSWORD and SESSION_SECRET (see README).' }, 500);
   }
   // Lock an IP out after too many wrong passwords, so a public dashboard can't be brute-forced.
+  // The attempt is recorded and counted in one atomic batch BEFORE the password is checked: checking first
+  // and recording afterwards would let a burst of parallel guesses all slip under the limit.
   const ip = c.req.header('cf-connecting-ip') ?? 'unknown';
   const now = Date.now();
-  const recent = await c.env.DB.prepare('SELECT COUNT(*) AS n FROM login_failures WHERE ip = ? AND ts > ?')
-    .bind(ip, now - LOCKOUT_MS)
-    .first<{ n: number }>();
-  if ((recent?.n ?? 0) >= MAX_FAILURES) {
+  const [, , attempts] = await c.env.DB.batch([
+    c.env.DB.prepare('DELETE FROM login_failures WHERE ts < ?').bind(now - LOCKOUT_MS),
+    c.env.DB.prepare('INSERT INTO login_failures (ip, ts) VALUES (?, ?)').bind(ip, now),
+    c.env.DB.prepare('SELECT COUNT(*) AS n FROM login_failures WHERE ip = ? AND ts > ?').bind(ip, now - LOCKOUT_MS),
+  ]);
+  if (((attempts.results[0] as { n: number } | undefined)?.n ?? 0) > MAX_FAILURES) {
     return c.json({ error: 'Too many wrong attempts. Try again in 15 minutes.' }, 429);
   }
   const { password } = await c.req.json<{ password?: string }>().catch(() => ({ password: undefined }));
   if (!password || !passwordsMatch(password, c.env.ADMIN_PASSWORD)) {
-    await c.env.DB.batch([
-      c.env.DB.prepare('INSERT INTO login_failures (ip, ts) VALUES (?, ?)').bind(ip, now),
-      c.env.DB.prepare('DELETE FROM login_failures WHERE ts < ?').bind(now - LOCKOUT_MS),
-    ]);
     await new Promise((r) => setTimeout(r, 500));
     return c.json({ error: 'Wrong password' }, 401);
   }
@@ -229,7 +285,8 @@ app.post('/api/sites', async (c) => {
   const b = await c.req.json<Partial<Site>>().catch(() => ({}) as Partial<Site>);
   const domain = cleanDomain(b.domain ?? '');
   if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(domain)) return c.json({ error: 'Enter a domain like example.com' }, 400);
-  const tz = b.timezone && validTimezone(b.timezone) ? b.timezone : 'UTC';
+  if (b.timezone && !validTimezone(b.timezone)) return c.json({ error: 'Unknown timezone' }, 400);
+  const tz = b.timezone || 'UTC';
   const site: Site = {
     id: randomId(8),
     name: (b.name || domain).slice(0, 100),
@@ -293,6 +350,8 @@ app.patch('/api/sites/:id', async (c) => {
     )
     .run();
   forgetSite(site.id);
+  // Revenue is stored in the site's currency, so a new currency converts what's already there.
+  if (next.currency !== site.currency) c.executionCtx.waitUntil(convertForeignPayments(c.env.DB, next).catch(() => 0));
   return c.json(publicSite(next));
 });
 
@@ -305,7 +364,8 @@ app.post('/api/sites/:id/rotate-key', async (c) => {
 app.delete('/api/sites/:id', async (c) => {
   const id = c.get('site').id;
   await c.env.DB.batch(
-    ['events', 'sessions', 'visitors', 'payments', 'funnels'].map((t) =>
+    // Everything stored for the site, so deleting it really removes its visitors' data.
+    ['events', 'sessions', 'visitors', 'payments', 'funnels', 'payment_claims', 'pending_payments', 'dodo_products'].map((t) =>
       c.env.DB.prepare(`DELETE FROM ${t} WHERE site_id = ?`).bind(id),
     ).concat(c.env.DB.prepare('DELETE FROM sites WHERE id = ?').bind(id)),
   );
@@ -450,10 +510,17 @@ app.get('/api/v1/analytics/sites/:id/gsc', requireAgentScope('gsc:read'), async 
   c.set('site', site);
   return gscSearch(c);
 });
+// Import historical data (DataFast / Plausible)
+app.post('/api/sites/:id/import/datafast', handleImportBatch);
+app.delete('/api/sites/:id/import/datafast', handleClearDatafastImport);
 
 // ---------- stats
 
-app.get('/api/sites/:id/overview', async (c) => c.json(await overview(makeCtx(c))));
+app.get('/api/sites/:id/overview', async (c) => {
+  // Payments recorded before conversion existed, or while exchange rates were unreachable.
+  await convertForeignPayments(c.env.DB, c.get('site')).catch(() => 0);
+  return c.json(await overview(makeCtx(c)));
+});
 
 app.get('/api/sites/:id/breakdown', async (c) => {
   try {

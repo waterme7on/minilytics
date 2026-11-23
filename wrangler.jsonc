@@ -8,8 +8,7 @@
     "directory": "./dist",
     "binding": "ASSETS",
     "not_found_handling": "none",
-    // Static files skip the Worker. Anything else (client routes, unknown paths) runs it so missing pages return a real 404.
-    "run_worker_first": ["/api/*"]
+    "run_worker_first": ["/api/*", "/mcp", "/oauth/*", "/.well-known/*"]
   },
   "routes": [
     { "pattern": "analytics.yololab.cc", "custom_domain": true }
