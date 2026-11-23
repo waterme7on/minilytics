@@ -140,7 +140,7 @@ function AgentTokens() {
   return (
     <Section
       title="Agent tokens"
-      desc="Read-only analytics API tokens for agents. The secret is shown once; revoke any token immediately. Each token covers every site you own."
+      desc="Read-only tokens for the REST API and the AI connector (/mcp). The secret is shown once; revoke any token immediately. Each token covers every site you own, and its scopes gate the MCP tools it can call."
     >
       <div className="flex flex-wrap items-end gap-3">
         <div className="min-w-48 flex-1">

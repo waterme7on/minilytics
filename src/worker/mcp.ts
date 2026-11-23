@@ -3,7 +3,8 @@ import { isHosted, siteAccessSql, type User } from './auth';
 import type { AppEnv, Env, Site } from './env';
 import { currencyDecimals } from './payments';
 import { breakdown, ctxFor, customers, funnel, overview, realtime, sparklines, visitorProfile, visitors, type FunnelStep } from './stats';
-import { userForBearer } from './tokens';
+import { gscSearch } from './gsc';
+import { agentBearer, userForBearer } from './tokens';
 import { PERIODS } from './lib/time';
 
 /**
@@ -22,7 +23,8 @@ const INSTRUCTIONS = `Minilytics is the user's privacy-friendly web analytics wi
 - Money is in major units of the site's currency (e.g. 19.99 USD). Refunds are negative.
 - "visitors" are unique people, "sessions" are visits. Bounce = a visit with one pageview and no goal.
 - Filters (optional object) narrow everything to matching visits, e.g. {"source":"X"}, {"country":"DE"}, {"utm_campaign":"launch"}, {"page":"/pricing"}, {"goal":"signup"}. Use "" to match an empty value.
-- Prefer short periods and small limits; for "which X made money" use get_breakdown and sort by revenue.`;
+- Prefer short periods and small limits; for "which X made money" use get_breakdown and sort by revenue.
+- Search Console data lives behind get_search_console (needs a token with the gsc:read scope and a connected GSC property).`;
 
 // ---------- tool definitions (JSON Schema)
 
@@ -91,6 +93,24 @@ export const TOOLS = [
     annotations: readOnly('Breakdown by dimension'),
   },
   {
+    name: 'get_search_console',
+    title: 'Google Search Console',
+    description:
+      'Google Search Console clicks, impressions, CTR and average position for the site, grouped by query, page, country or device, with totals, a previous-period comparison and a daily/hourly series. Needs a token with the gsc:read scope and a GSC property connected in site settings.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        site: SITE,
+        dimension: { type: 'string', enum: ['query', 'page', 'country', 'device'], default: 'query', description: 'What to group the search rows by.' },
+        view: { type: 'string', enum: ['all', 'overview', 'breakdown'], default: 'breakdown', description: 'all = totals + series + rows; overview = totals + series; breakdown = rows.' },
+        ...RANGE_PROPS,
+      },
+      required: ['site'],
+      additionalProperties: false,
+    },
+    annotations: readOnly('Google Search Console'),
+  },
+  {
     name: 'get_realtime',
     title: 'Live visitors',
     description: 'Who is on the site right now (active in the last 5 minutes: page, location, source, device) and the pageviews, goals and payments of the last 30 minutes.',
@@ -151,6 +171,12 @@ export const TOOLS = [
   },
 ] as const;
 
+/** Agent tokens carry scopes; OAuth and Connect AI personal tokens are full read. */
+const TOOL_SCOPES: Record<string, string> = { get_search_console: 'gsc:read' };
+const toolScope = (name: string) => TOOL_SCOPES[name] ?? 'analytics:read';
+const toolsFor = (scopes: string[] | null) =>
+  scopes === null ? TOOLS : TOOLS.filter((tool) => scopes.includes(toolScope(tool.name)));
+
 // ---------- shaping results for an AI (readable dates, money in major units, nothing huge)
 
 const TIME_KEYS = new Set(['ts', 'started_at', 'last_seen_at', 'last_seen', 'first_seen', 'created_at', 'now']);
@@ -203,6 +229,26 @@ async function findSite(env: Env, user: User, ref: unknown): Promise<Site> {
   return site;
 }
 
+/**
+ * Reuses the dashboard's GSC handler (permission, range and hourly logic) by
+ * presenting it the fields it reads from a Hono request.
+ */
+async function searchConsole(env: Env, user: User, site: Site, a: Args) {
+  const q: Record<string, string | undefined> = {
+    dimension: str(a.dimension), view: str(a.view), period: str(a.period), from: str(a.from), to: str(a.to),
+  };
+  const adapter = {
+    env,
+    req: { query: (key: string) => q[key] },
+    get: (key: string) => (key === 'site' ? site : key === 'user' ? user : undefined),
+    json: (body: unknown, status = 200) => ({ __gsc: true, status, body }),
+  } as unknown as Context<AppEnv>;
+  const res = (await gscSearch(adapter)) as unknown as { __gsc?: boolean; status?: number; body?: { error?: string } };
+  if (!res?.__gsc) throw new ToolError('Search Console query failed');
+  if (res.status !== 200) throw new ToolError(String(res.body?.error ?? 'Search Console query failed'));
+  return res.body;
+}
+
 function rangeQuery(a: Args) {
   const period = str(a.period) ?? '30d';
   if (!(PERIODS as readonly string[]).includes(period)) throw new ToolError(`Unknown period "${period}". Use one of: ${PERIODS.join(', ')}.`);
@@ -244,6 +290,8 @@ export async function callTool(env: Env, user: User, name: string, a: Args): Pro
   const base = { site: { id: site.id, domain: site.domain }, currency: site.currency };
 
   switch (name) {
+    case 'get_search_console':
+      return { ...base, ...(await searchConsole(env, user, site, a)) };
     case 'get_overview': {
       const o = await overview(ctxFor(env.DB, site, rangeQuery(a)));
       const keys = Object.keys(o.current) as (keyof typeof o.current)[];
@@ -373,7 +421,7 @@ export function rateLimited(key: string, now = Date.now()): boolean {
   return c.n > MAX_CALLS;
 }
 
-export async function handleRpc(env: Env, user: User, msg: RpcRequest, limitKey: string): Promise<object | null> {
+export async function handleRpc(env: Env, user: User, msg: RpcRequest, limitKey: string, scopes: string[] | null = null): Promise<object | null> {
   if (!msg || typeof msg !== 'object' || msg.jsonrpc !== '2.0' || typeof msg.method !== 'string') {
     return rpcError(msg?.id, -32600, 'Invalid JSON-RPC request');
   }
@@ -394,7 +442,7 @@ export async function handleRpc(env: Env, user: User, msg: RpcRequest, limitKey:
     case 'ping':
       return rpcResult(msg.id, {});
     case 'tools/list':
-      return rpcResult(msg.id, { tools: TOOLS });
+      return rpcResult(msg.id, { tools: toolsFor(scopes) });
     case 'resources/list':
       return rpcResult(msg.id, { resources: [] });
     case 'resources/templates/list':
@@ -404,6 +452,9 @@ export async function handleRpc(env: Env, user: User, msg: RpcRequest, limitKey:
     case 'tools/call': {
       const name = String(p.name ?? '');
       if (!TOOLS.some((t) => t.name === name)) return rpcError(msg.id, -32602, `Unknown tool: ${name}`);
+      if (scopes !== null && !scopes.includes(toolScope(name))) {
+        return rpcResult(msg.id, { isError: true, content: [{ type: 'text', text: `This token lacks the ${toolScope(name)} scope.` }] });
+      }
       if (rateLimited(limitKey)) {
         return rpcResult(msg.id, { isError: true, content: [{ type: 'text', text: 'Rate limit reached (150 calls per 5 minutes). Wait a few minutes and try again.' }] });
       }
@@ -421,14 +472,27 @@ export async function handleRpc(env: Env, user: User, msg: RpcRequest, limitKey:
   }
 }
 
-export function unauthorized(c: Context<AppEnv>, message = 'Connect with OAuth or send "Authorization: Bearer <token>" (create one in Minilytics → Connect AI).') {
+export function unauthorized(c: Context<AppEnv>, message = 'Connect with OAuth or send "Authorization: Bearer <token>" (Connect AI or Settings → Agent tokens).') {
   const o = new URL(c.req.url).origin;
   c.header('WWW-Authenticate', `Bearer resource_metadata="${o}/.well-known/oauth-protected-resource", scope="read"`);
   return c.json({ error: 'unauthorized', error_description: message }, 401);
 }
 
-export async function mcpPost(c: Context<AppEnv>) {
+/**
+ * One resolver for both token families: Agent tokens (scoped, from Settings)
+ * first, then Connect AI / OAuth tokens (full read). Agent-token scopes gate the
+ * tools an assistant can see and call.
+ */
+async function mcpAuth(c: Context<AppEnv>): Promise<{ user: User; scopes: string[] | null; key: string } | null> {
+  const agent = await agentBearer(c);
+  if (agent) return { user: agent.user, scopes: agent.scopes, key: `agent:${agent.token.id}` };
   const auth = await userForBearer(c);
+  if (auth) return { user: auth.user, scopes: null, key: auth.token.grant_id };
+  return null;
+}
+
+export async function mcpPost(c: Context<AppEnv>) {
+  const auth = await mcpAuth(c);
   if (!auth) return unauthorized(c);
   if (isHosted(c.env) && !auth.user.paid) {
     return c.json(rpcError(null, -32001, 'Your Minilytics plan is not active. Choose a plan in the dashboard to use the AI connector.'), 403);
@@ -442,7 +506,7 @@ export async function mcpPost(c: Context<AppEnv>) {
   const batch = Array.isArray(body);
   const msgs = (batch ? body : [body]) as RpcRequest[];
   if (!msgs.length || msgs.length > 20) return c.json(rpcError(null, -32600, 'Send 1 to 20 messages'), 400);
-  const out = (await Promise.all(msgs.map((m) => handleRpc(c.env, auth.user, m, auth.token.grant_id)))).filter((r): r is object => r !== null);
+  const out = (await Promise.all(msgs.map((m) => handleRpc(c.env, auth.user, m, auth.key, auth.scopes)))).filter((r): r is object => r !== null);
   if (!out.length) return c.body(null, 202);
   return c.json(batch ? out : out[0]);
 }
