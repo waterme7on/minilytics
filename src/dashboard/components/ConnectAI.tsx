@@ -161,7 +161,7 @@ export function ConnectAI({ open, onClose }: { open: boolean; onClose: () => voi
 
       <div className="mt-6 border-t border-stone-100 pt-5">
         <div className="font-semibold">Personal tokens</div>
-        <p className="mt-1 text-sm text-stone-500">For tools that don't sign in with a browser. Treat a token like a password: it can read all your analytics.</p>
+        <p className="mt-1 text-sm text-stone-500">For tools that don't sign in with a browser. Treat a token like a password: it can read all your analytics. Agent tokens from Settings → Agent tokens also work here; their scopes decide which tools they can use (Search Console needs <code>gsc:read</code>).</p>
         <form onSubmit={createToken} className="mt-3 flex gap-2">
           <input className="input" placeholder="Name, e.g. Cursor on my laptop" value={name} onChange={(e) => setName(e.target.value)} maxLength={60} />
           <button className="btn-dark shrink-0">Create token</button>

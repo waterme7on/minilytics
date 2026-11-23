@@ -1,6 +1,7 @@
 import type { Context } from 'hono';
-import { subjectOf, userFromSubject, type User } from './auth';
+import { isHosted, subjectOf, userFromSubject, type User } from './auth';
 import type { AppEnv, Env } from './env';
+import { agentTokenScopeList, findAgentToken, type AgentTokenRow } from './lib/agent-tokens';
 import { randomId, sha256Hex } from './lib/crypto';
 
 /**
@@ -62,6 +63,28 @@ export async function userForBearer(c: Context<AppEnv>): Promise<{ user: User; t
     );
   }
   return { user, token };
+}
+
+/**
+ * Settings → Agent tokens are accepted by the MCP server too, so an existing
+ * token works for both the REST API and AI assistants. Scopes are returned so
+ * callers can hide tools the token cannot use.
+ */
+export async function agentBearer(c: Context<AppEnv>): Promise<{ user: User; token: AgentTokenRow; scopes: string[] } | null> {
+  const m = /^Bearer\s+(\S+)$/i.exec(c.req.header('authorization') ?? '');
+  if (!m) return null;
+  const token = await findAgentToken(c.env.DB, m[1]);
+  if (!token) return null;
+  const subject = isHosted(c.env) ? `u:${token.owner_id}` : 'admin';
+  const user = await userFromSubject(c.env, subject);
+  if (!user) return null;
+  const now = Date.now();
+  if (!token.last_used_at || now - token.last_used_at > TOUCH_EVERY_MS) {
+    c.executionCtx.waitUntil(
+      c.env.DB.prepare('UPDATE agent_tokens SET last_used_at = ? WHERE id = ?').bind(now, token.id).run().catch(() => {}),
+    );
+  }
+  return { user, token, scopes: agentTokenScopeList(token) };
 }
 
 // ---------- dashboard: list, create and revoke (login required)

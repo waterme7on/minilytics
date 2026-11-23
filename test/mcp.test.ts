@@ -43,6 +43,19 @@ describe('MCP protocol', () => {
     const schema = TOOLS.find((t) => t.name === 'get_breakdown')!.inputSchema as any;
     expect(schema.properties.dimension.enum).toEqual(DIMENSIONS);
   });
+  it('gates Search Console by the agent token scope', async () => {
+    const analyticsOnly: any = await handleRpc(env, user, { jsonrpc: '2.0', id: 1, method: 'tools/list' }, 'k', ['analytics:read']);
+    expect(analyticsOnly.result.tools.map((t: any) => t.name)).not.toContain('get_search_console');
+    const withGsc: any = await handleRpc(env, user, { jsonrpc: '2.0', id: 1, method: 'tools/list' }, 'k', ['analytics:read', 'gsc:read']);
+    expect(withGsc.result.tools.map((t: any) => t.name)).toContain('get_search_console');
+    const denied: any = await handleRpc(env, user, { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'get_search_console', arguments: {} } }, 'k', ['analytics:read']);
+    expect(denied.result.isError).toBe(true);
+    expect(denied.result.content[0].text).toMatch(/gsc:read/);
+  });
+  it('keeps Search Console available to unscoped OAuth and Connect AI tokens', async () => {
+    const r: any = await handleRpc(env, user, { jsonrpc: '2.0', id: 1, method: 'tools/list' }, 'k');
+    expect(r.result.tools.map((t: any) => t.name)).toContain('get_search_console');
+  });
 });
 
 describe('results for AI', () => {

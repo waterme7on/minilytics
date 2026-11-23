@@ -281,6 +281,8 @@ curl "https://YOUR-HOST/api/v1/analytics/sites/SITE_ID/gsc?dimension=query&perio
 
 The overview and breakdown endpoints accept the same `period`, `from`, `to` and `filters` query parameters as the dashboard. The GSC endpoint accepts `dimension` (`query`, `page`, `country`, `device`), `view` (`all`, `overview`, `breakdown`) and the same date parameters; it returns 403 when the token lacks `gsc:read`.
 
+Agent tokens also authenticate the MCP server: send the same `mla_...` token as a Bearer to `/mcp`. `analytics:read` exposes the analytics tools; `gsc:read` additionally exposes `get_search_console`.
+
 ## Import from DataFast or Plausible
 
 You can import historical analytics and revenue attribution into Minilytics from DataFast or Plausible export archives (`.zip`) or individual report `.csv` files.
