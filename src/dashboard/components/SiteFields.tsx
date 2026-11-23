@@ -1,4 +1,5 @@
 // Dropdowns for a site's timezone and currency, so they can't be mistyped.
+import { SelectDropdown } from './SelectDropdown';
 
 const FALLBACK_TIMEZONES = ['UTC', 'Europe/London', 'Europe/Paris', 'Europe/Berlin', 'America/New_York', 'America/Chicago', 'America/Los_Angeles', 'America/Sao_Paulo', 'Asia/Kolkata', 'Asia/Singapore', 'Asia/Tokyo', 'Australia/Sydney'];
 
@@ -24,28 +25,35 @@ function timezoneOptions() {
 
 export function TimezoneSelect({ value, onChange }: { value: string; onChange: (tz: string) => void }) {
   const options = timezoneOptions();
+  // Keep a saved value the browser doesn't list (old alias like "Asia/Calcutta").
+  const list = options.some((o) => o.value === value) ? options : [{ value, label: value }, ...options];
   return (
-    <select className="input" value={value} onChange={(e) => onChange(e.target.value)}>
-      {/* Keep a saved value the browser doesn't list (old alias like "Asia/Calcutta"). */}
-      {!options.some((o) => o.value === value) && <option value={value}>{value}</option>}
-      {options.map((o) => (
-        <option key={o.value} value={o.value}>
-          {o.label}
-        </option>
-      ))}
-    </select>
+    <SelectDropdown
+      ariaLabel="Timezone"
+      value={value}
+      options={list}
+      onChange={onChange}
+      className="w-full"
+      buttonClassName="input"
+      align="right"
+    />
   );
 }
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'INR', 'CAD', 'AUD', 'SGD', 'JPY', 'BRL'];
 
 export function CurrencySelect({ value, onChange }: { value: string; onChange: (currency: string) => void }) {
+  const options = CURRENCIES.map((code) => ({ value: code, label: code }));
+  const list = options.some((o) => o.value === value) ? options : [{ value, label: value }, ...options];
   return (
-    <select className="input" value={value} onChange={(e) => onChange(e.target.value)}>
-      {!CURRENCIES.includes(value) && <option value={value}>{value}</option>}
-      {CURRENCIES.map((c) => (
-        <option key={c}>{c}</option>
-      ))}
-    </select>
+    <SelectDropdown
+      ariaLabel="Revenue currency"
+      value={value}
+      options={list}
+      onChange={onChange}
+      className="w-full"
+      buttonClassName="input"
+      align="right"
+    />
   );
 }
